@@ -23,6 +23,7 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -46,6 +47,8 @@ public class EmisorActivity extends AppCompatActivity {
     private static final String CADENA = "0000180a-0000-1000-8000-00805f9b34fb";
     private static final String SOFTWARE_REVISION_STRING ="00002A28-0000-1000-8000-00805f9b34fb";
     private static final String  CHAR_NOTIFY = "0000fff4-0000-1000-8000-00805f9b34fb";
+
+
 
     private static boolean ejecutar = true;
 
@@ -171,8 +174,35 @@ public class EmisorActivity extends AppCompatActivity {
 
         thread.start();
 
+
+
         miservicio.addCharacteristic(notifyCharacteristic);
         miservicio.addCharacteristic(softwareVerCharacteristic);
+    }
+
+    /**
+     * Construye un servicio podómetro.
+     * @return un servicio
+     */
+    private BluetoothGattService dameServicioPodometro(){
+        BluetoothGattCharacteristic pasos = new BluetoothGattCharacteristic(
+                DatosGATT.PODOMETRO_CARAC_PASOS,
+                BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
+        pasos.setValue("55".getBytes());
+
+        BluetoothGattCharacteristic tiempo = new BluetoothGattCharacteristic(
+                DatosGATT.PODOMETRO_CARAC_TIEMPO,
+                BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
+        tiempo.setValue("ayer".getBytes());
+
+        BluetoothGattService servicio =  new BluetoothGattService( DatosGATT.PODOMETRO_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY );
+        servicio.addCharacteristic(pasos);
+        servicio.addCharacteristic(tiempo);
+        return servicio;
     }
 
     /**
@@ -186,6 +216,7 @@ public class EmisorActivity extends AppCompatActivity {
         mGattServer.clearServices();
 
         mGattServer.addService(miservicio);
+        mGattServer.addService( dameServicioPodometro() );
     }
 
     /**

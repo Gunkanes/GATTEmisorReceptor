@@ -76,18 +76,26 @@ public class ReceptorActivity extends AppCompatActivity {
             setScanCallback();
 
          //   mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanFilters, mScanSettings , mScanCallback );
-            mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback);
+         //   mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback);
+    //arranco scan en onresume
 
-            pararScan();
         }
 
 
     }
 
-
-    private void pararScan(){
-
+    @Override
+    public void onResume(){
+        super.onResume();
+        mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback);
     }
+
+    @Override
+    public void onPause(){
+        mBluetoothAdapter.getBluetoothLeScanner().stopScan(mScanCallback);
+        super.onPause();
+    }
+
 
     /**
      * Método utilizado para establecer los datos de scansettings

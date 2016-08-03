@@ -11,6 +11,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,6 +23,7 @@ import android.widget.TextView;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +46,8 @@ public class DispositivoActivity extends AppCompatActivity {
     private ExpandableListView mGattServicesList;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
 
+    private ColaLectura colaLectura;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,6 +56,8 @@ public class DispositivoActivity extends AppCompatActivity {
         direccion = (TextView) findViewById(R.id.device_address);
         estado = (TextView) findViewById(R.id.connection_state);
         datos = (TextView) findViewById(R.id.data_value);
+
+        colaLectura = new ColaLectura();
 
         Bundle bundle = getIntent().getExtras();
         if( bundle != null) {
@@ -113,6 +119,7 @@ public class DispositivoActivity extends AppCompatActivity {
         // Se llama de manera asincrona al leer una caracteristica del server.
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status){
+            Log.i("CARACTERISTICA","lectura status "+status);
             if( status == BluetoothGatt.GATT_SUCCESS){
                 Log.i("CARACTERISTICA", characteristic.toString());
                 byte[]  datos = characteristic.getValue();
@@ -123,6 +130,9 @@ public class DispositivoActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
+
+
+            colaLectura.liberarYEjectutarSiguiente();
         }
 
         /* se llama al enviarse una notificación de cambio por parte del emisor. */
@@ -136,6 +146,12 @@ public class DispositivoActivity extends AppCompatActivity {
             }
 
         }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status){
+            Log.e("TAG","onDescriptorwrite status "+status);
+        }
+
     };
 
     private void broadcastUpdate(final String action) {
@@ -155,9 +171,12 @@ public class DispositivoActivity extends AppCompatActivity {
                 estado.setText("desconectado");
             } else if (action.equals(ACCION_GATT_SERVICIO_DESCUBIERTO)){
                 mostrarServicios();
+                ejecutarLecturaTemporizada();
             }
         }
     };
+
+
 
     private void clearUI() {
         mGattServicesList.setAdapter((SimpleExpandableListAdapter) null);
@@ -219,7 +238,7 @@ public class DispositivoActivity extends AppCompatActivity {
                     if (mGattCharacteristics != null) {
                         final BluetoothGattCharacteristic characteristic =    mGattCharacteristics.get(groupPosition).get(childPosition);
                         final int charaProp = characteristic.getProperties();
-                        if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+                       /* if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
                             // If there is an active notification on a characteristic, clear
                             // it first so it doesn't update the data field on the user interface.
                             if (mNotifyCharacteristic != null) {
@@ -231,6 +250,26 @@ public class DispositivoActivity extends AppCompatActivity {
                         if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
                             mNotifyCharacteristic = characteristic;
                             setCharacteristicNotification(  characteristic, true);
+                        }*/
+
+                        //intento de leer caracteristicas además de recibir notificación de otra
+                        if ( charaProp == BluetoothGattCharacteristic.PROPERTY_READ ){
+                            Log.i("TAG"," property read ");
+                            readCharacteristic(characteristic);
+                        }
+
+        //************                //mBluetoothGatt.readDescriptor(ccc);  leer
+
+                        if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY ){
+                            Log.i("TAG","property notify");
+                            if( mNotifyCharacteristic != null){ //apago
+                                setCharacteristicNotification(  mNotifyCharacteristic, false);
+                                mNotifyCharacteristic = null;
+                            }else{ //enciendo
+                                mNotifyCharacteristic = characteristic;
+                                setCharacteristicNotification( characteristic, true);
+                            }
+
                         }
                         return true;
                     }
@@ -241,7 +280,9 @@ public class DispositivoActivity extends AppCompatActivity {
     public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
         if( characteristic == null) Log.e("TAG","caracteristica es null");
         if( mBluetoothGatt == null) Log.e("TAG","bluetoothgatt es null");
-        mBluetoothGatt.readCharacteristic(characteristic);
+        Log.e("TAG","orden de lectura "+characteristic.getUuid());
+        boolean respuesta = mBluetoothGatt.readCharacteristic(characteristic);
+        Log.e("TAG","orden de lectura "+respuesta);
     }
 
     public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,  boolean enabled) {
@@ -254,8 +295,8 @@ public class DispositivoActivity extends AppCompatActivity {
         if( characteristic.getUuid().equals(UUID.fromString("0000fff4-0000-1000-8000-00805f9b34fb") ) ){
             mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor( UUID.fromString("0000fff4-0000-1000-8000-00805f9b34fb"));
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE );
-            mBluetoothGatt.writeDescriptor(descriptor);
+            descriptor.setValue( (enabled) ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE );
+            Log.e("TAG","descriptor : "+mBluetoothGatt.writeDescriptor(descriptor));
         }
 
     }
@@ -267,5 +308,106 @@ public class DispositivoActivity extends AppCompatActivity {
         mBluetoothGatt.close();
         mBluetoothGatt = null;
     }
+
+
+
+    /****  version con timer para recopilar datos constantemente de caracteristicas de lectura. ****/
+    //timer ejecuta cada cierto tiempo orden de lectura .
+    //orden se almacena en cola para que se ejecute
+
+    private Handler handler = new Handler();
+
+    private Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+
+            //algo...
+            for( int i = 0 ; i< mGattCharacteristics.size(); i++) {
+                for (int j = 0; j < mGattCharacteristics.get(i).size(); j++) {
+                    BluetoothGattCharacteristic characteristic = mGattCharacteristics.get(i).get(j);
+                    int propiedad = characteristic.getProperties();
+                    if (propiedad == BluetoothGattCharacteristic.PROPERTY_READ) {
+                        Log.i("TAG", " envio a cola propiedad ");
+                        //readCharacteristic(characteristic);
+                        colaLectura.ponerEnCola(characteristic);
+                    }
+                }
+            }
+            colaLectura.ejecutarSiguiente();
+
+
+            handler.postDelayed(this, 5000);
+        }
+    };
+
+    private void ejecutarLecturaTemporizada() {
+
+        //cada cierto tiempo realizar lectura de caracteristicas
+        handler.postDelayed(runnable, 2000);
+
+
+    }
+
+
+    /**
+     * Gestiona la lectura de distintas caracteristicas.
+     */
+    class ColaLectura {
+
+        private Boolean leyendo = false;
+        private List<BluetoothGattCharacteristic> lista;
+
+        ColaLectura(){
+            lista = new LinkedList<>();
+        }
+
+
+        /**
+         * Añade a la lista un objeto caracteristica para ser leido en su momento.
+         *
+         * @param characteristic
+         */
+        public void ponerEnCola(BluetoothGattCharacteristic characteristic ){
+            lista.add(characteristic);
+        }
+
+        /**
+         * Realiza la petición de leer la siguiente caracteristica de la lista.
+         * LLamado por un temporizador ??? para leer cada cierto tiempo todas las caracteristicas de los distintos sensores.
+         */
+        public void ejecutarSiguiente(){
+            if(lista.size()>0) {
+                if (!leyendo) {
+                    synchronized (leyendo) {
+                        leyendo = true;
+                    }
+                    BluetoothGattCharacteristic carac = lista.remove(0);
+                    boolean correcto = mBluetoothGatt.readCharacteristic(carac);
+                    if (!correcto) {
+                        synchronized (leyendo) {
+                            leyendo = false;
+                        }
+                    }
+                }
+            }else{
+                liberar();
+            }
+        }
+
+        /**
+         * Libera el bloqueo para que se pueda leer la siguiente caracteristica
+         */
+        public void liberar(){
+            synchronized (leyendo){
+                leyendo = false;
+            }
+        }
+
+        public void liberarYEjectutarSiguiente(){
+            liberar();
+            ejecutarSiguiente();
+        }
+    }
+
 
 }
