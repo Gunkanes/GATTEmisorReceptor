@@ -28,20 +28,12 @@ import java.util.List;
 public class ReceptorActivity extends AppCompatActivity {
 
     private BluetoothAdapter mBluetoothAdapter;
-    private static int REQUEST_ENABLE_BT = 100;
-
-    private Handler mHandler;
-    private boolean mScanning;
-    private static final long SCAN_PERIOD = 10000;
 
     private ArrayList<ScanFilter> mScanFilters=new ArrayList<>();
     private ScanSettings mScanSettings;
     private ScanCallback mScanCallback ;
 
-    public final static String ACTION_DATA_AVAILABLE ="com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
-
     private BluetoothManager bluetoothManager;
-    private BluetoothGatt mBluetoothGatt;
 
     private Adaptador adaptador;
 
@@ -75,9 +67,7 @@ public class ReceptorActivity extends AppCompatActivity {
 
             setScanCallback();
 
-         //   mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanFilters, mScanSettings , mScanCallback );
-         //   mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback);
-    //arranco scan en onresume
+            //arranco scan en onresume
 
         }
 
@@ -87,7 +77,7 @@ public class ReceptorActivity extends AppCompatActivity {
     @Override
     public void onResume(){
         super.onResume();
-        mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback);
+        mBluetoothAdapter.getBluetoothLeScanner().startScan(mScanCallback); // sin filtro
     }
 
     @Override
@@ -140,9 +130,6 @@ public class ReceptorActivity extends AppCompatActivity {
                 adaptador.insertar(device);
                 Log.i("TAG","Cuantos hay "+ adaptador.getItemCount());
 
-                ////
-
-               //
 
             }
 
@@ -179,22 +166,6 @@ public class ReceptorActivity extends AppCompatActivity {
     }
 
 
-
-
-
-
-    //apra enviar por broadcast la información....
-    private void broadcastUpdate( final String action , final BluetoothGattCharacteristic characteristic){
-
-    }
-
-
-
-    private void mostrarServicios(){
-
-    }
-
-
     /**
      * Método utilizado para la creación de filtros de detección de beacons.
      *
@@ -208,8 +179,6 @@ public class ReceptorActivity extends AppCompatActivity {
         }
         return data;
     }
-
-
 
 
 }

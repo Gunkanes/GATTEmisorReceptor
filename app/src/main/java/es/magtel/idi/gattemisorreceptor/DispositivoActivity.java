@@ -90,6 +90,7 @@ public class DispositivoActivity extends AppCompatActivity {
         close();
     }
 
+    //callback de el objeto bluetoothgatt
     private BluetoothGattCallback mGattCallback = new BluetoothGattCallback(){
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState){
@@ -100,6 +101,7 @@ public class DispositivoActivity extends AppCompatActivity {
             }
             else if( newState == BluetoothProfile.STATE_DISCONNECTED){
                 Log.i("TAG","desconectado de gatt server");
+                //reconectar...?
                 broadcastUpdate(ACCION_GATT_DESCONECTAR);
             }
         }
@@ -125,14 +127,13 @@ public class DispositivoActivity extends AppCompatActivity {
                 byte[]  datos = characteristic.getValue();
                 try {
                     String algo = new String( datos,"UTF-8");
-                    Log.i("CARACTERISTICA", "UUID "+characteristic.getUuid().toString()+" datos: "+algo);
+                    Log.i("CARACTERISTICA", " READ UUID "+characteristic.getUuid().toString()+" datos: "+algo);
                 } catch (UnsupportedEncodingException e) {
                     e.printStackTrace();
                 }
             }
 
-
-            colaLectura.liberarYEjectutarSiguiente();
+            //colaLectura.liberarYEjectutarSiguiente();
         }
 
         /* se llama al enviarse una notificación de cambio por parte del emisor. */
@@ -140,11 +141,10 @@ public class DispositivoActivity extends AppCompatActivity {
         public void onCharacteristicChanged (BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
             try {
                 String algo = new String(characteristic.getValue(), "UTF-8");
-                Log.i("CARACTERISTICA", " UUID " + characteristic.getUuid().toString() + " dato " + algo);
+                Log.i("CARACTERISTICA", "NOTIFY UUID " + characteristic.getUuid().toString() + " dato " + algo);
             }catch (UnsupportedEncodingException e){
                 e.printStackTrace();
             }
-
         }
 
         @Override
@@ -159,6 +159,9 @@ public class DispositivoActivity extends AppCompatActivity {
         sendBroadcast(intent);
     }
 
+    // broadcast que recibe las acciones conectar , deconectar y servicio descubierto.
+    // controlado en onresume y onpause
+    // detectamos cuando existe conexión o no.
     private final BroadcastReceiver receptorGATT = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -171,7 +174,7 @@ public class DispositivoActivity extends AppCompatActivity {
                 estado.setText("desconectado");
             } else if (action.equals(ACCION_GATT_SERVICIO_DESCUBIERTO)){
                 mostrarServicios();
-                ejecutarLecturaTemporizada();
+                //ejecutarLecturaTemporizada();
             }
         }
     };
@@ -182,6 +185,8 @@ public class DispositivoActivity extends AppCompatActivity {
         mGattServicesList.setAdapter((SimpleExpandableListAdapter) null);
     }
 
+    //muestra en pantalla los servicios descubiertos. da opción a activar las notifiaciones de las caracteristicas.
+    //rellena el interfaz con los datos.
     private void mostrarServicios(){
         List<BluetoothGattService> servicios = mBluetoothGatt.getServices();
         datos.setText(" Servicios encontrados : "+servicios.size());
@@ -196,7 +201,13 @@ public class DispositivoActivity extends AppCompatActivity {
         for (BluetoothGattService gattService : servicios) {
             HashMap<String, String> currentServiceData = new HashMap<String, String>();
             uuid = gattService.getUuid().toString();
-            currentServiceData.put( LIST_NAME, unknownServiceString);
+
+            String nombreServ = DatosGATT.dameNombre( gattService.getUuid());
+            if( nombreServ != null){
+                currentServiceData.put(LIST_NAME, nombreServ);
+            }else{
+                currentServiceData.put(LIST_NAME, unknownServiceString);
+            }
             currentServiceData.put(LIST_UUID, uuid);
             gattServiceData.add(currentServiceData);
             ArrayList<HashMap<String, String>> gattCharacteristicGroupData =          new ArrayList<HashMap<String, String>>();
@@ -207,7 +218,13 @@ public class DispositivoActivity extends AppCompatActivity {
                 charas.add(gattCharacteristic);
                 HashMap<String, String> currentCharaData = new HashMap<String, String>();
                 uuid = gattCharacteristic.getUuid().toString();
-                currentCharaData.put(      LIST_NAME, unknownCharaString);
+
+                String nombreCarac = DatosGATT.dameNombre( gattCharacteristic.getUuid() );
+                if (nombreCarac != null){
+                    currentCharaData.put(LIST_NAME, nombreCarac);
+                } else{
+                    currentCharaData.put(LIST_NAME, unknownCharaString);
+                }
                 currentCharaData.put(LIST_UUID, uuid);
                 gattCharacteristicGroupData.add(currentCharaData);
             }
@@ -260,17 +277,23 @@ public class DispositivoActivity extends AppCompatActivity {
 
         //************                //mBluetoothGatt.readDescriptor(ccc);  leer
 
-                        if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY ){
+                /*        if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY ){
                             Log.i("TAG","property notify");
                             if( mNotifyCharacteristic != null){ //apago
                                 setCharacteristicNotification(  mNotifyCharacteristic, false);
                                 mNotifyCharacteristic = null;
+                                Log.i("TAG"," notificacion apagada ");
                             }else{ //enciendo
                                 mNotifyCharacteristic = characteristic;
                                 setCharacteristicNotification( characteristic, true);
+                                Log.i("TAG"," notificacion encendida ");
                             }
+                        }*/
 
+                        if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY){
+                            setCharacteristicNotification( characteristic, true);
                         }
+
                         return true;
                     }
                     return false;
@@ -292,11 +315,14 @@ public class DispositivoActivity extends AppCompatActivity {
         }
 
         //Solo notificación en las características que lo soporten
-        if( characteristic.getUuid().equals(UUID.fromString("0000fff4-0000-1000-8000-00805f9b34fb") ) ){
-            mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-            BluetoothGattDescriptor descriptor = characteristic.getDescriptor( UUID.fromString("0000fff4-0000-1000-8000-00805f9b34fb"));
-            descriptor.setValue( (enabled) ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE );
-            Log.e("TAG","descriptor : "+mBluetoothGatt.writeDescriptor(descriptor));
+        if( characteristic.getUuid().equals( DatosGATT.ACELEROMETRO_CARAC_X)  ||
+            characteristic.getUuid().equals(DatosGATT.ACELEROMETRO_CARAC_Y )  ||
+            characteristic.getUuid().equals(DatosGATT.ACELEROMETRO_CARAC_Z)      ){
+                mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+
+            //BluetoothGattDescriptor descriptor = characteristic.getDescriptor( DatosGATT.CCCD );
+            //descriptor.setValue( (enabled) ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE );
+           // Log.e("TAG","descriptor : "+mBluetoothGatt.writeDescriptor(descriptor));
         }
 
     }

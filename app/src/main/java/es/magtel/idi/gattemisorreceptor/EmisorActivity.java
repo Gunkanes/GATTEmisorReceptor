@@ -42,15 +42,11 @@ public class EmisorActivity extends AppCompatActivity {
     private AdvertiseData advertiseData;
 
     private BluetoothGattServer mGattServer;
-    private BluetoothGattService miservicio;
 
-    private static final String CADENA = "0000180a-0000-1000-8000-00805f9b34fb";
-    private static final String SOFTWARE_REVISION_STRING ="00002A28-0000-1000-8000-00805f9b34fb";
-    private static final String  CHAR_NOTIFY = "0000fff4-0000-1000-8000-00805f9b34fb";
-
-
-
-    private static boolean ejecutar = true;
+    private SensorAcelerometro sensor;
+    private BluetoothGattCharacteristic x;
+    private BluetoothGattCharacteristic y;
+    private BluetoothGattCharacteristic z;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,11 +69,10 @@ public class EmisorActivity extends AppCompatActivity {
             //anuncio
             prepararData();
 
-            //preparar servicio
-            prepararServicio();
-
             //servidor
             prepararServer();
+
+            sensor = new SensorAcelerometro(this);
         }
     }
 
@@ -89,13 +84,14 @@ public class EmisorActivity extends AppCompatActivity {
         anunciador = mBluetoothAdapter.getBluetoothLeAdvertiser();
         //comienzo a anunciar los servicios indicados.
         anunciador.startAdvertising(settings, advertiseData, advertiseCallback );
-        ejecutar = true;
+
+        sensor.activar(); //activo sensor acelerometro
     }
 
     @Override
     public void onPause(){
         anunciador.stopAdvertising(advertiseCallback);
-        ejecutar =false;
+        sensor.desactivar();
         super.onPause();
     }
 
@@ -114,70 +110,65 @@ public class EmisorActivity extends AppCompatActivity {
                 .build();
     }
 
+
     /**
-     * Un servicio está hecho de caracteristicas y otros servicios
-     * Creo el servicio , creo una caracteristica y añado la caracteristica al servicio.
+     * Construye un servicio de acelerometro
+     *
      */
-    private void prepararServicio(){
-        miservicio = new BluetoothGattService(UUID.fromString(CADENA), BluetoothGattService.SERVICE_TYPE_PRIMARY );
-
-        BluetoothGattCharacteristic softwareVerCharacteristic = new BluetoothGattCharacteristic(
-                UUID.fromString(SOFTWARE_REVISION_STRING),
-                BluetoothGattCharacteristic.PROPERTY_READ,
-                BluetoothGattCharacteristic.PERMISSION_READ
-        );
-        softwareVerCharacteristic.setValue("3.1.2".getBytes());
-
-        final BluetoothGattCharacteristic notifyCharacteristic = new BluetoothGattCharacteristic(
-                UUID.fromString(CHAR_NOTIFY),
+    private BluetoothGattService dameServicioAcelerometro(){
+         x = new BluetoothGattCharacteristic(
+                DatosGATT.ACELEROMETRO_CARAC_X,
                 BluetoothGattCharacteristic.PROPERTY_NOTIFY,
                 BluetoothGattCharacteristic.PERMISSION_READ
         );
-        BluetoothGattDescriptor descriptor  = new BluetoothGattDescriptor(UUID.fromString("0000fff4-0000-1000-8000-00805f9b34fb"),BluetoothGattDescriptor.PERMISSION_READ);
-        notifyCharacteristic.addDescriptor(descriptor);
+         y = new BluetoothGattCharacteristic(
+                DatosGATT.ACELEROMETRO_CARAC_Y,
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
+         z = new BluetoothGattCharacteristic(
+                DatosGATT.ACELEROMETRO_CARAC_Z,
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
 
-        notifyCharacteristic.setValue("100");
+        x.setValue("10".getBytes());
+        y.setValue("20".getBytes());
+        z.setValue("30".getBytes());
 
-        //Código para enviar datos diferentes cada cierto tiempo en el servicio de notificación
+        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(DatosGATT.CCCD , BluetoothGattDescriptor.PERMISSION_READ|BluetoothGattDescriptor.PERMISSION_WRITE);
+        byte[] valor = new byte[]{ 0x00, 0x01 };
+        descriptor.setValue(valor);
 
-        Thread thread = new Thread() {
-            int i = 0;
+        x.addDescriptor(descriptor);
+        y.addDescriptor(descriptor);
+        z.addDescriptor(descriptor);
 
-            @Override
-            public void run() {
+        BluetoothGattService servicio = new BluetoothGattService( DatosGATT.ACELEROMETRO_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+        servicio.addCharacteristic(x);
+        servicio.addCharacteristic(y);
+        servicio.addCharacteristic(z);
 
-                while(ejecutar) {
+        return servicio;
+    }
 
-                    try {
-                        sleep(1000);
-                    } catch (InterruptedException e) {}
-
-                    List<BluetoothDevice> connectedDevices  = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
-
-                    if(null != connectedDevices)
-                    {
-                        Log.i("TAG","hay dispositivos");
-                        notifyCharacteristic.setValue(String.valueOf(i).getBytes());
-
-                        if(0 != connectedDevices.size()){
-                            for( BluetoothDevice device: connectedDevices){
-                                Log.i("TAG","dispositivo "+device.getAddress());
-                                mGattServer.notifyCharacteristicChanged(device,  notifyCharacteristic, false);
-                            }
-                        }
-                    }
-                    i++;
-                    Log.i("I","el vlaor de i es "+i+String.valueOf(i).getBytes().toString());
+    //metodo ejecutado desde sensoracelerometro para indicar cambios en gravedad
+    public void indicarGravedad( float valorx, float valory, float valorz){
+        List<BluetoothDevice> connectedDevices  = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+        if( connectedDevices != null){
+            x.setValue( String.valueOf(valorx).getBytes() );
+            y.setValue( String.valueOf(valory).getBytes() );
+            z.setValue( String.valueOf(valorz).getBytes() );
+            if(0 != connectedDevices.size()){
+                for( BluetoothDevice device: connectedDevices){
+                    Log.i("TAG","dispositivo "+device.getAddress());
+                    mGattServer.notifyCharacteristicChanged(device,  x, false);
+                    mGattServer.notifyCharacteristicChanged(device,  y, false);
+                    mGattServer.notifyCharacteristicChanged(device,  z, false);
                 }
             }
-        };
+        }
 
-        thread.start();
-
-
-
-        miservicio.addCharacteristic(notifyCharacteristic);
-        miservicio.addCharacteristic(softwareVerCharacteristic);
     }
 
     /**
@@ -215,8 +206,8 @@ public class EmisorActivity extends AppCompatActivity {
         //limpiar servicios anteriores
         mGattServer.clearServices();
 
-        mGattServer.addService(miservicio);
         mGattServer.addService( dameServicioPodometro() );
+        mGattServer.addService( dameServicioAcelerometro() );
     }
 
     /**
@@ -266,7 +257,6 @@ public class EmisorActivity extends AppCompatActivity {
             Log.d("GattServer", "We have received a write request for one of our hosted characteristics");
             //Log.d("GattServer", "data = "+ value.toString());
             super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value);
-
         }
 
         @Override
@@ -295,7 +285,6 @@ public class EmisorActivity extends AppCompatActivity {
             Log.d("GattServer", "Our gatt server on execute write.");
             super.onExecuteWrite(device, requestId, execute);
         }
-
     };
 
 

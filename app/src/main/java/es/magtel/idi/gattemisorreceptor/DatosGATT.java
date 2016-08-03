@@ -1,5 +1,6 @@
 package es.magtel.idi.gattemisorreceptor;
 
+import java.util.HashMap;
 import java.util.UUID;
 
 /**
@@ -42,6 +43,31 @@ public class DatosGATT {
     public static final UUID ACELEROMETRO_CARAC_X = UUID.fromString("0000A031-0000-1000-8000-00805f9b34fb");
     public static final UUID ACELEROMETRO_CARAC_Y = UUID.fromString("0000A032-0000-1000-8000-00805f9b34fb");
     public static final UUID ACELEROMETRO_CARAC_Z = UUID.fromString("0000A033-0000-1000-8000-00805f9b34fb");
+
+    // cccd
+    public static final UUID CCCD = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+
+    private static HashMap<UUID, String> mapaNombres = new HashMap<>();
+    static
+    {
+        mapaNombres.put(PODOMETRO_SERVICIO, "Podometro" );
+        mapaNombres.put(PODOMETRO_CARAC_PASOS, "Podometro pasos" );
+        mapaNombres.put(PODOMETRO_CARAC_TIEMPO, "Podometro Tiempo" );
+        mapaNombres.put(ACELEROMETRO_SERVICIO, "Acelerometro");
+        mapaNombres.put(ACELEROMETRO_CARAC_X, "Acelerometro x");
+        mapaNombres.put(ACELEROMETRO_CARAC_Y, "Acelerometro y");
+        mapaNombres.put(ACELEROMETRO_CARAC_Z, "Acelerometro z");
+
+    }
+
+    /**
+     * Para un identificador devuelve el nombre del servicio o caracteristica
+     * @param uuid
+     * @return
+     */
+    public static String dameNombre(UUID uuid){
+        return mapaNombres.get(uuid);
+    }
 
 }
 

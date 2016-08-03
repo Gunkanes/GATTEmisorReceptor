@@ -1,9 +1,6 @@
 package es.magtel.idi.gattemisorreceptor;
 
-import android.app.Activity;
-import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
-import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.support.v7.widget.RecyclerView;
@@ -16,6 +13,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
+ * Adaptador para lista. Muestra los dispositivos detectados
+ *
  * Created by SAMUAN on 18/07/2016.
  */
 public class Adaptador extends RecyclerView.Adapter<Adaptador.AdaptadorViewHolder> implements ItemClickListener{
