@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -20,7 +21,9 @@ import java.util.List;
 public class Adaptador extends RecyclerView.Adapter<Adaptador.AdaptadorViewHolder> implements ItemClickListener{
 
     private Context context;
-    public static List<BluetoothDevice> dispositivos = new LinkedList<>();
+    //public static List<BluetoothDevice> dispositivos = new LinkedList<>();
+    public static List<Dispositivo> dispositivos = new LinkedList<>();
+
 
     public Adaptador(Context context) {
         this.context = context;
@@ -54,7 +57,7 @@ public class Adaptador extends RecyclerView.Adapter<Adaptador.AdaptadorViewHolde
 
     @Override
     public void onBindViewHolder(AdaptadorViewHolder holder, int position) {
-        BluetoothDevice device = dispositivos.get(position);
+        BluetoothDevice device = dispositivos.get(position).getDispositivo();
         holder.nombre.setText(device.getName());
         holder.direccion.setText(device.getAddress());
     }
@@ -68,11 +71,36 @@ public class Adaptador extends RecyclerView.Adapter<Adaptador.AdaptadorViewHolde
      * Añado un dispositivo a la lista si no está ya en la lista.
      * @param device
      */
-    public void insertar(BluetoothDevice device){
-        if( !dispositivos.contains(device)) {
-            dispositivos.add(device);
+    public void insertar(BluetoothDevice device, long tiempo){
+        limpiarAntiguos();
+        Dispositivo undispositivo = new Dispositivo(device, tiempo);
+        if( !estaDispositivo(undispositivo)) {
+            dispositivos.add(undispositivo);
             this.notifyDataSetChanged();
         }
+    }
+
+    private boolean estaDispositivo(Dispositivo undispositivo){
+        boolean salida = false;
+        for (Dispositivo dispositivo:dispositivos ) {
+            if( dispositivo.getDispositivo().equals( undispositivo.getDispositivo()) ) salida = true;
+        }
+        return salida;
+    }
+    
+    private void limpiarAntiguos(){
+        LinkedList<Dispositivo> listaborrado = new LinkedList<>();
+        long tiempoactual = System.currentTimeMillis();
+        for (Dispositivo undispositivo:dispositivos ) {
+            long tiempopasado = undispositivo.getTiempo();
+            if (tiempoactual > tiempopasado + 10000){
+                listaborrado.add(undispositivo);
+            }
+        }
+        for (Dispositivo undispositivo:listaborrado ) {
+            dispositivos.remove(undispositivo);
+        }
+        this.notifyDataSetChanged();
     }
 
     @Override
@@ -80,6 +108,33 @@ public class Adaptador extends RecyclerView.Adapter<Adaptador.AdaptadorViewHolde
         Intent intent = new Intent(context, DispositivoActivity.class);
         intent.putExtra("dispositivo",position);
         context.startActivity(intent);
+    }
+
+
+    class Dispositivo {
+        private BluetoothDevice dispositivo;
+        private long tiempo;
+
+        public Dispositivo(BluetoothDevice dispositivo, long tiempo) {
+            this.dispositivo = dispositivo;
+            this.tiempo = tiempo;
+        }
+
+        public BluetoothDevice getDispositivo() {
+            return dispositivo;
+        }
+
+        public void setDispositivo(BluetoothDevice dispositivo) {
+            this.dispositivo = dispositivo;
+        }
+
+        public long getTiempo() {
+            return tiempo;
+        }
+
+        public void setTiempo(long tiempo) {
+            this.tiempo = tiempo;
+        }
     }
 
 }

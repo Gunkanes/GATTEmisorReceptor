@@ -86,14 +86,13 @@ public class ReceptorActivity extends AppCompatActivity {
         super.onPause();
     }
 
-
     /**
      * Método utilizado para establecer los datos de scansettings
      */
     private void setScanSettings() {
         ScanSettings.Builder mBuilder = new ScanSettings.Builder();
         mBuilder.setReportDelay(0);
-        mBuilder.setScanMode(ScanSettings.SCAN_MODE_LOW_POWER);
+        mBuilder.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY);
         mScanSettings = mBuilder.build();
     }
 
@@ -126,8 +125,9 @@ public class ReceptorActivity extends AppCompatActivity {
                 int rssi = result.getRssi();
                 ScanRecord scanRecord = result.getScanRecord();
                 byte[] scanDatos = scanRecord.getBytes();
+                Log.i("SCAN"," device "+ device.toString());
 
-                adaptador.insertar(device);
+                adaptador.insertar(device, System.currentTimeMillis());
                 Log.i("TAG","Cuantos hay "+ adaptador.getItemCount());
 
 

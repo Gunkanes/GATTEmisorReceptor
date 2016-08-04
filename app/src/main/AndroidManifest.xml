@@ -27,7 +27,8 @@
 
         <activity
             android:name=".EmisorActivity"
-            android:label="EMISOR"/>
+            android:label="EMISOR"
+            android:screenOrientation="portrait"/>
 
         <activity
             android:name=".ReceptorActivity"

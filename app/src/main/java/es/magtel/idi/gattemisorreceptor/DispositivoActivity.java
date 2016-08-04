@@ -11,9 +11,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Bundle;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ExpandableListView;
@@ -44,7 +44,10 @@ public class DispositivoActivity extends AppCompatActivity {
     private final String LIST_UUID = "UUID";
 
     private ExpandableListView mGattServicesList;
-    private BluetoothGattCharacteristic mNotifyCharacteristic;
+
+    private BluetoothDevice dispositivo;
+
+    private HashMap<BluetoothGattCharacteristic, Boolean> mapaCaracteristicasNotificacion = new HashMap<>();
 
     private ColaLectura colaLectura;
 
@@ -62,10 +65,8 @@ public class DispositivoActivity extends AppCompatActivity {
         Bundle bundle = getIntent().getExtras();
         if( bundle != null) {
             int cual = bundle.getInt("dispositivo");
-            BluetoothDevice device = Adaptador.dispositivos.get(cual);
-            direccion.setText(device.getName() + " " +  device.getAddress() );
-
-            mBluetoothGatt =  device.connectGatt(this, false, mGattCallback);
+            dispositivo = Adaptador.dispositivos.get(cual).getDispositivo();
+            direccion.setText(dispositivo.getName() + " " +  dispositivo.getAddress() );
 
             mGattServicesList = (ExpandableListView) findViewById(R.id.gatt_services_list);
             mGattServicesList.setOnChildClickListener(servicesListClickListner);
@@ -81,6 +82,8 @@ public class DispositivoActivity extends AppCompatActivity {
         filtro.addAction(ACCION_GATT_DESCONECTAR);
         filtro.addAction(ACCION_GATT_SERVICIO_DESCUBIERTO);
         this.registerReceiver(receptorGATT,filtro);
+
+        mBluetoothGatt =  dispositivo.connectGatt(this, false, mGattCallback);
     }
 
     @Override
@@ -102,6 +105,7 @@ public class DispositivoActivity extends AppCompatActivity {
             else if( newState == BluetoothProfile.STATE_DISCONNECTED){
                 Log.i("TAG","desconectado de gatt server");
                 //reconectar...?
+                //dispositivo.connectGatt(DispositivoActivity.this, false, mGattCallback);
                 broadcastUpdate(ACCION_GATT_DESCONECTAR);
             }
         }
@@ -141,7 +145,12 @@ public class DispositivoActivity extends AppCompatActivity {
         public void onCharacteristicChanged (BluetoothGatt gatt, BluetoothGattCharacteristic characteristic){
             try {
                 String algo = new String(characteristic.getValue(), "UTF-8");
-                Log.i("CARACTERISTICA", "NOTIFY UUID " + characteristic.getUuid().toString() + " dato " + algo);
+
+                String nombre = DatosGATT.dameNombre( characteristic.getUuid() );
+                if( nombre == null) nombre= characteristic.getUuid().toString();
+
+                Log.i("CARACTERISTICA", "NOTIFY UUID " + nombre + " dato " + algo);
+
             }catch (UnsupportedEncodingException e){
                 e.printStackTrace();
             }
@@ -210,6 +219,7 @@ public class DispositivoActivity extends AppCompatActivity {
             }
             currentServiceData.put(LIST_UUID, uuid);
             gattServiceData.add(currentServiceData);
+
             ArrayList<HashMap<String, String>> gattCharacteristicGroupData =          new ArrayList<HashMap<String, String>>();
             List<BluetoothGattCharacteristic> gattCharacteristics =          gattService.getCharacteristics();
             ArrayList<BluetoothGattCharacteristic> charas =             new ArrayList<BluetoothGattCharacteristic>();
@@ -255,43 +265,18 @@ public class DispositivoActivity extends AppCompatActivity {
                     if (mGattCharacteristics != null) {
                         final BluetoothGattCharacteristic characteristic =    mGattCharacteristics.get(groupPosition).get(childPosition);
                         final int charaProp = characteristic.getProperties();
-                       /* if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
-                            // If there is an active notification on a characteristic, clear
-                            // it first so it doesn't update the data field on the user interface.
-                            if (mNotifyCharacteristic != null) {
-                                setCharacteristicNotification(  mNotifyCharacteristic, false);
-                                mNotifyCharacteristic = null;
-                            }
-                            readCharacteristic(characteristic);
-                        }
-                        if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
-                            mNotifyCharacteristic = characteristic;
-                            setCharacteristicNotification(  characteristic, true);
-                        }*/
 
-                        //intento de leer caracteristicas además de recibir notificación de otra
                         if ( charaProp == BluetoothGattCharacteristic.PROPERTY_READ ){
                             Log.i("TAG"," property read ");
                             readCharacteristic(characteristic);
                         }
 
-        //************                //mBluetoothGatt.readDescriptor(ccc);  leer
-
-                /*        if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY ){
-                            Log.i("TAG","property notify");
-                            if( mNotifyCharacteristic != null){ //apago
-                                setCharacteristicNotification(  mNotifyCharacteristic, false);
-                                mNotifyCharacteristic = null;
-                                Log.i("TAG"," notificacion apagada ");
-                            }else{ //enciendo
-                                mNotifyCharacteristic = characteristic;
-                                setCharacteristicNotification( characteristic, true);
-                                Log.i("TAG"," notificacion encendida ");
-                            }
-                        }*/
-
                         if( charaProp == BluetoothGattCharacteristic.PROPERTY_NOTIFY){
                             setCharacteristicNotification( characteristic, true);
+                        }
+
+                        if( charaProp == BluetoothGattCharacteristic.PROPERTY_WRITE){
+                            writeCharacteristic( characteristic );
                         }
 
                         return true;
@@ -299,6 +284,17 @@ public class DispositivoActivity extends AppCompatActivity {
                     return false;
                 }
     };
+
+    private void writeCharacteristic(BluetoothGattCharacteristic characteristic) {
+        if( mBluetoothGatt == null){ Log.e("TAG","bluetoothgatt es null"); return; }
+        Log.i("TAG","write characteristic");
+
+        Log.i("WRITE","valor antes : "+characteristic.getValue());
+        String valor = " algo a poner en server ";
+        characteristic.setValue(valor.getBytes());
+        Log.i("WRITE","valor despues : "+characteristic.getValue());
+        mBluetoothGatt.writeCharacteristic( characteristic  );
+    }
 
     public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
         if( characteristic == null) Log.e("TAG","caracteristica es null");
@@ -315,16 +311,31 @@ public class DispositivoActivity extends AppCompatActivity {
         }
 
         //Solo notificación en las características que lo soporten
-        if( characteristic.getUuid().equals( DatosGATT.ACELEROMETRO_CARAC_X)  ||
-            characteristic.getUuid().equals(DatosGATT.ACELEROMETRO_CARAC_Y )  ||
-            characteristic.getUuid().equals(DatosGATT.ACELEROMETRO_CARAC_Z)      ){
-                mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-
-            //BluetoothGattDescriptor descriptor = characteristic.getDescriptor( DatosGATT.CCCD );
-            //descriptor.setValue( (enabled) ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE );
-           // Log.e("TAG","descriptor : "+mBluetoothGatt.writeDescriptor(descriptor));
+        if( soportaNotificacion(characteristic)){
+            //Si la caracteristica no está en el mapa la añado y la activo. Si está en el mapa miro si está activa para pararla o si está parada para activarla.
+            if( mapaCaracteristicasNotificacion.containsKey(characteristic) ){
+               Boolean estado = mapaCaracteristicasNotificacion.get(characteristic);
+               if(estado){
+                    mapaCaracteristicasNotificacion.put(characteristic,false);
+                    mBluetoothGatt.setCharacteristicNotification(characteristic, false);
+               }else{
+                   mapaCaracteristicasNotificacion.put(characteristic, true);
+                   mBluetoothGatt.setCharacteristicNotification(characteristic, true);
+               }
+            }else{
+                mapaCaracteristicasNotificacion.put(characteristic,true);
+                mBluetoothGatt.setCharacteristicNotification(characteristic,true);
+            }
         }
+    }
 
+    private boolean soportaNotificacion( BluetoothGattCharacteristic carac){
+        UUID uuid = carac.getUuid();
+        if( uuid.equals( DatosGATT.ACELEROMETRO_CARAC_X)) return true;
+        if( uuid.equals( DatosGATT.ACELEROMETRO_CARAC_Y)) return true;
+        if( uuid.equals( DatosGATT.ACELEROMETRO_CARAC_Z)) return true;
+        if( uuid.equals( DatosGATT.HEART_RATE_CARAC_MEDIDA)) return true;
+        return false;
     }
 
     public void close() {

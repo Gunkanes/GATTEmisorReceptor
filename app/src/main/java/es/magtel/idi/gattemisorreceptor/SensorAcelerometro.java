@@ -44,7 +44,8 @@ public class SensorAcelerometro implements SensorEventListener {
     public void activar(){
         SensorManager sm = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
         List<Sensor> sensors = sm.getSensorList(Sensor.TYPE_ACCELEROMETER);
-        if( sensors.size()>0) sm.registerListener( this, sensors.get(0), SensorManager.SENSOR_DELAY_NORMAL);
+        //if( sensors.size()>0) sm.registerListener( this, sensors.get(0), SensorManager.SENSOR_DELAY_NORMAL);
+        if( sensors.size()>0) sm.registerListener( this, sensors.get(0), 1000000); //tiempo de retraso en microsegundos.
     }
 
     public void desactivar(){

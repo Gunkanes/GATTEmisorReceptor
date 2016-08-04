@@ -29,7 +29,9 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 public class EmisorActivity extends AppCompatActivity {
@@ -44,9 +46,17 @@ public class EmisorActivity extends AppCompatActivity {
     private BluetoothGattServer mGattServer;
 
     private SensorAcelerometro sensor;
-    private BluetoothGattCharacteristic x;
+
+    private BluetoothGattCharacteristic x; //caracteristicas para acelerometro
     private BluetoothGattCharacteristic y;
     private BluetoothGattCharacteristic z;
+
+    private BluetoothGattCharacteristic ratio; //caracteristica para pulso del corazón.
+    private Thread hilocorazon;
+    private boolean ejecutarHilo = true;
+
+    private int indicadorServicio = 0 ; // indica que servicio hay que añadir
+    private ArrayList<BluetoothGattService> servicios = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +83,7 @@ public class EmisorActivity extends AppCompatActivity {
             prepararServer();
 
             sensor = new SensorAcelerometro(this);
+            actualizarCorazon();
         }
     }
 
@@ -93,11 +104,12 @@ public class EmisorActivity extends AppCompatActivity {
         anunciador.stopAdvertising(advertiseCallback);
         sensor.desactivar();
         super.onPause();
+        ejecutarHilo = false;
     }
 
     private void prepararSettings(){
         settings = new AdvertiseSettings.Builder()
-        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
+        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
         .setConnectable(true)
         .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
         .build();
@@ -152,25 +164,6 @@ public class EmisorActivity extends AppCompatActivity {
         return servicio;
     }
 
-    //metodo ejecutado desde sensoracelerometro para indicar cambios en gravedad
-    public void indicarGravedad( float valorx, float valory, float valorz){
-        List<BluetoothDevice> connectedDevices  = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
-        if( connectedDevices != null){
-            x.setValue( String.valueOf(valorx).getBytes() );
-            y.setValue( String.valueOf(valory).getBytes() );
-            z.setValue( String.valueOf(valorz).getBytes() );
-            if(0 != connectedDevices.size()){
-                for( BluetoothDevice device: connectedDevices){
-                    Log.i("TAG","dispositivo "+device.getAddress());
-                    mGattServer.notifyCharacteristicChanged(device,  x, false);
-                    mGattServer.notifyCharacteristicChanged(device,  y, false);
-                    mGattServer.notifyCharacteristicChanged(device,  z, false);
-                }
-            }
-        }
-
-    }
-
     /**
      * Construye un servicio podómetro.
      * @return un servicio
@@ -197,6 +190,82 @@ public class EmisorActivity extends AppCompatActivity {
     }
 
     /**
+     * Construye servicio Heart Rate
+     * Simulo el cambio del valor con un hilo llamado desde el método actualizar Corazon
+     * @return
+     */
+    private BluetoothGattService dameServicioHeartRate(){
+        ratio = new BluetoothGattCharacteristic(DatosGATT.HEART_RATE_CARAC_MEDIDA, BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ);
+        ratio.setValue("10".getBytes());
+
+        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(DatosGATT.CCCD, BluetoothGattDescriptor.PERMISSION_READ|BluetoothGattDescriptor.PERMISSION_WRITE);
+        byte[] valor = new byte[]{ 0x00, 0x01};
+        descriptor.setValue(valor);
+
+        ratio.addDescriptor(descriptor);
+
+        BluetoothGattCharacteristic localizacion = new BluetoothGattCharacteristic(DatosGATT.HEART_RATE_CARAC_LOCATION, BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
+        localizacion.setValue("muñeca".getBytes());
+
+        BluetoothGattCharacteristic puntoControl = new BluetoothGattCharacteristic(DatosGATT.HEART_RATE_CARAC_POINT, BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE);
+        puntoControl.setValue("por defecto".getBytes());
+
+        BluetoothGattService servicio = new BluetoothGattService( DatosGATT.HEART_RATE_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+        servicio.addCharacteristic(ratio);
+        servicio.addCharacteristic(localizacion);
+        servicio.addCharacteristic(puntoControl);
+        return servicio;
+    }
+
+    // En un hilo aparte realiza el cambio de valor de los latidos de corazón.
+    private void actualizarCorazon(){
+        hilocorazon = new Thread(){
+            int valor = 0;
+            Random random = new Random();
+
+            @Override
+            public void run(){
+                while(ejecutarHilo){
+                    valor = 60 + random.nextInt(60);
+                    try{
+                        sleep(1000);       //pausa
+                    }catch (InterruptedException e){
+                        e.printStackTrace();
+                    }
+                    List<BluetoothDevice> dispositivosconectados = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+                    if( dispositivosconectados != null){
+                        ratio.setValue( String.valueOf(valor).getBytes());
+                        if( dispositivosconectados.size() != 0){
+                            for( BluetoothDevice device: dispositivosconectados){
+                                mGattServer.notifyCharacteristicChanged(device, ratio, false);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        hilocorazon.start();
+    }
+
+    //metodo ejecutado desde sensoracelerometro para indicar cambios en gravedad
+    public void indicarGravedad( float valorx, float valory, float valorz){
+        List<BluetoothDevice> connectedDevices  = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+        if( connectedDevices != null){
+            x.setValue( String.valueOf(valorx).getBytes() );
+            y.setValue( String.valueOf(valory).getBytes() );
+            z.setValue( String.valueOf(valorz).getBytes() );
+            if(0 != connectedDevices.size()){
+                for( BluetoothDevice device: connectedDevices){
+                    Log.i("TAG","dispositivo "+device.getAddress());
+                    mGattServer.notifyCharacteristicChanged(device,  x, false);
+                    mGattServer.notifyCharacteristicChanged(device,  y, false);
+                    mGattServer.notifyCharacteristicChanged(device,  z, false);
+                }
+            }
+        }
+    }
+
+    /**
      * El server es el encargado de permitir la comunicación entre periferico y central.
      * Le añado los servicios que van a estar disponibles.
      */
@@ -206,8 +275,26 @@ public class EmisorActivity extends AppCompatActivity {
         //limpiar servicios anteriores
         mGattServer.clearServices();
 
-        mGattServer.addService( dameServicioPodometro() );
-        mGattServer.addService( dameServicioAcelerometro() );
+        //meto en lista de servicios a todos los que haya para ir añadiendolos al server gatt poco a poco.
+        servicios.add( dameServicioPodometro() );
+        servicios.add( dameServicioAcelerometro() );
+        servicios.add( dameServicioHeartRate() );
+
+        mGattServer.addService( servicios.get(indicadorServicio) ); //añado al primer servicio -> cuando se reciba el evento de servicio añadido se añadirán los siguientes.
+        indicadorServicio = 1;
+
+        //problema al añadir servicios, da null pointer, cuando servicio esta ok.
+        // Supongo fallo al intentar añadirlos demasiado rapido.
+        //cambio a añadir uno cuando se recibe notificación del anterior.
+
+    }
+
+    //añade un servicio de los que hay en la lista.
+    private void añadirOtroServicioSiHay(){
+        if( indicadorServicio < servicios.size() ) {
+            mGattServer.addService(servicios.get(indicadorServicio));
+            indicadorServicio++;
+        }
     }
 
     /**
@@ -241,13 +328,15 @@ public class EmisorActivity extends AppCompatActivity {
 
         @Override
         public void onServiceAdded(int status, BluetoothGattService service) {
-            Log.d("GattServer", "Our gatt server service was added.");
+            Log.d("GattServer", "Nuestro servicio gatt fue añadido. "+status+" servicio "+service.toString());
             super.onServiceAdded(status, service);
+
+            añadirOtroServicioSiHay();
         }
 
         @Override
         public void onCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattCharacteristic characteristic) {
-            Log.d("GattServer", "Our gatt characteristic was read.");
+            Log.d("GattServer", "caracteristica leida");
             super.onCharacteristicReadRequest(device, requestId, offset, characteristic);
             mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,   characteristic.getValue());
         }
@@ -264,7 +353,7 @@ public class EmisorActivity extends AppCompatActivity {
         {
             Log.d("GattServer", "onNotificationSent");
             super.onNotificationSent(device, status);
-            Log.d("TAG","DEvice "+device.getName()+" "+device.getAddress()+" status "+status);
+            Log.d("TAG","Device "+device.getName()+" "+device.getAddress()+" status "+status);
         }
 
         @Override

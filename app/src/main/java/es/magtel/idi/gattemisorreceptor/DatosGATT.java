@@ -57,6 +57,10 @@ public class DatosGATT {
         mapaNombres.put(ACELEROMETRO_CARAC_X, "Acelerometro x");
         mapaNombres.put(ACELEROMETRO_CARAC_Y, "Acelerometro y");
         mapaNombres.put(ACELEROMETRO_CARAC_Z, "Acelerometro z");
+        mapaNombres.put(HEART_RATE_SERVICIO, "Pulsómetro");
+        mapaNombres.put(HEART_RATE_CARAC_MEDIDA, "Pulsómetro medida");
+        mapaNombres.put(HEART_RATE_CARAC_LOCATION, "Pulsómetro localización");
+        mapaNombres.put(HEART_RATE_CARAC_POINT, "Pulsómetro punto control");
 
     }
 
