@@ -53,15 +53,31 @@ public class DatosGATT {
         mapaNombres.put(PODOMETRO_SERVICIO, "Podometro" );
         mapaNombres.put(PODOMETRO_CARAC_PASOS, "Podometro pasos" );
         mapaNombres.put(PODOMETRO_CARAC_TIEMPO, "Podometro Tiempo" );
+        mapaNombres.put(PODOMETRO_CARAC_RESET, "Podometro Reset");
+
         mapaNombres.put(ACELEROMETRO_SERVICIO, "Acelerometro");
         mapaNombres.put(ACELEROMETRO_CARAC_X, "Acelerometro x");
         mapaNombres.put(ACELEROMETRO_CARAC_Y, "Acelerometro y");
         mapaNombres.put(ACELEROMETRO_CARAC_Z, "Acelerometro z");
+
         mapaNombres.put(HEART_RATE_SERVICIO, "Pulsómetro");
         mapaNombres.put(HEART_RATE_CARAC_MEDIDA, "Pulsómetro medida");
         mapaNombres.put(HEART_RATE_CARAC_LOCATION, "Pulsómetro localización");
         mapaNombres.put(HEART_RATE_CARAC_POINT, "Pulsómetro punto control");
 
+        mapaNombres.put(BATTERY_SERVICIO, "Batería");
+        mapaNombres.put(BATTERY_CARAC_LEVEL, "Batería nivel");
+
+        mapaNombres.put(HEALTH_THERMOMETER_SERVICIO, "Health thermometer");
+        mapaNombres.put(HEALTH_THERMOMETER_CARAC_MEDIDA, "Health medida");
+        mapaNombres.put(HEALTH_THERMOMETER_CARAC_TIPO, "Health tipo");
+        mapaNombres.put(HEALTH_THERMOMETER_CARAC_INTERMEDIA, "Health intermedia");
+        mapaNombres.put(HEALTH_THERMOMETER_CARAC_INTERVALO, "Health intervalo");
+
+        mapaNombres.put(STATUS_SERVICIO, "Status");
+        mapaNombres.put(STATUS_CARAC_LEER, "Status leer");
+        mapaNombres.put(STATUS_CARAC_ESCRIBIR, "Status escribir");
+        mapaNombres.put(STATUS_CARAC_TEMP, "Status temp");
     }
 
     /**

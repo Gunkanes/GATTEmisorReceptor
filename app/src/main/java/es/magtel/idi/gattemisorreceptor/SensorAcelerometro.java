@@ -8,6 +8,8 @@ import android.hardware.SensorManager;
 
 import java.util.List;
 
+import es.magtel.idi.gattemisorreceptor.actividades.EmisorActivity;
+
 /**
  * Captura datos de acelerometro y los manda a receptor
  *

@@ -16,28 +16,24 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
-        <activity android:name=".MainActivity">
+        <activity android:name=".actividades.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
-            android:name=".EmisorActivity"
+            android:name=".actividades.EmisorActivity"
             android:label="EMISOR"
-            android:screenOrientation="portrait"/>
-
+            android:screenOrientation="portrait" />
         <activity
-            android:name=".ReceptorActivity"
-            android:label="RECEPTOR"/>
-
+            android:name=".actividades.ReceptorActivity"
+            android:label="RECEPTOR" />
         <activity
-            android:name=".DispositivoActivity"
-            android:label="DISPOSITIVO"
-            ></activity>
+            android:name=".actividades.DispositivoActivity"
+            android:label="DISPOSITIVO" />
+        <activity android:name=".actividades.PruebaOrdenesActivity"></activity>
     </application>
 
 </manifest>

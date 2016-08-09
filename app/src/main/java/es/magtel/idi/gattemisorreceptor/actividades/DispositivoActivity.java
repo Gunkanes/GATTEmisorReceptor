@@ -1,4 +1,4 @@
-package es.magtel.idi.gattemisorreceptor;
+package es.magtel.idi.gattemisorreceptor.actividades;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -27,6 +27,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
+import es.magtel.idi.gattemisorreceptor.DatosGATT;
+import es.magtel.idi.gattemisorreceptor.R;
+import es.magtel.idi.gattemisorreceptor.adaptadoresListas.Adaptador;
+
 public class DispositivoActivity extends AppCompatActivity {
 
     private TextView estado;
@@ -40,8 +44,8 @@ public class DispositivoActivity extends AppCompatActivity {
     private static final String ACCION_GATT_SERVICIO_DESCUBIERTO = "es.magte.idi.gattemisorreceptor.ACCION_GATT_SERVICIO_DESCUBIERTO";
 
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =   new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
-    private final String LIST_NAME = "NAME";
-    private final String LIST_UUID = "UUID";
+    private static final String LIST_NAME = "NAME";
+    private static final String LIST_UUID = "UUID";
 
     private ExpandableListView mGattServicesList;
 
@@ -241,6 +245,7 @@ public class DispositivoActivity extends AppCompatActivity {
             mGattCharacteristics.add(charas);
             gattCharacteristicData.add(gattCharacteristicGroupData);
         }
+
         SimpleExpandableListAdapter gattServiceAdapter = new SimpleExpandableListAdapter(
                 this,
                 gattServiceData,
@@ -371,8 +376,6 @@ public class DispositivoActivity extends AppCompatActivity {
                 }
             }
             colaLectura.ejecutarSiguiente();
-
-
             handler.postDelayed(this, 5000);
         }
     };

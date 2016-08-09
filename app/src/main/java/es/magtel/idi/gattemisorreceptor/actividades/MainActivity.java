@@ -1,9 +1,11 @@
-package es.magtel.idi.gattemisorreceptor;
+package es.magtel.idi.gattemisorreceptor.actividades;
 
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+
+import es.magtel.idi.gattemisorreceptor.R;
 
 /**
  * Ejemplo de emisor receptor usando el protocolo gatt de bluetooth 4.0
@@ -30,6 +32,9 @@ public class MainActivity extends AppCompatActivity {
                 Intent i2 = new Intent(this,ReceptorActivity.class);
                 startActivity(i2);
                 break;
+            case R.id.botonPruebaOrden:
+                Intent i3 = new Intent(this,PruebaOrdenesActivity.class);
+                startActivity(i3);
         }
     }
 }

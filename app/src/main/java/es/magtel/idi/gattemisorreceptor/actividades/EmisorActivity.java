@@ -1,9 +1,8 @@
-package es.magtel.idi.gattemisorreceptor;
+package es.magtel.idi.gattemisorreceptor.actividades;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
@@ -15,24 +14,18 @@ import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanRecord;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
 import android.content.Context;
-import android.content.Intent;
-import android.os.Handler;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
+
+import es.magtel.idi.gattemisorreceptor.DatosGATT;
+import es.magtel.idi.gattemisorreceptor.R;
+import es.magtel.idi.gattemisorreceptor.SensorAcelerometro;
 
 public class EmisorActivity extends AppCompatActivity {
 
@@ -52,7 +45,6 @@ public class EmisorActivity extends AppCompatActivity {
     private BluetoothGattCharacteristic z;
 
     private BluetoothGattCharacteristic ratio; //caracteristica para pulso del corazón.
-    private Thread hilocorazon;
     private boolean ejecutarHilo = true;
 
     private int indicadorServicio = 0 ; // indica que servicio hay que añadir
@@ -122,7 +114,6 @@ public class EmisorActivity extends AppCompatActivity {
                 .build();
     }
 
-
     /**
      * Construye un servicio de acelerometro
      *
@@ -183,6 +174,13 @@ public class EmisorActivity extends AppCompatActivity {
         );
         tiempo.setValue("ayer".getBytes());
 
+        BluetoothGattCharacteristic reset = new BluetoothGattCharacteristic(
+                DatosGATT.PODOMETRO_CARAC_RESET,
+                BluetoothGattCharacteristic.PROPERTY_WRITE,
+                BluetoothGattCharacteristic.PERMISSION_WRITE
+        );
+        reset.setValue("0".getBytes());
+
         BluetoothGattService servicio =  new BluetoothGattService( DatosGATT.PODOMETRO_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY );
         servicio.addCharacteristic(pasos);
         servicio.addCharacteristic(tiempo);
@@ -192,7 +190,7 @@ public class EmisorActivity extends AppCompatActivity {
     /**
      * Construye servicio Heart Rate
      * Simulo el cambio del valor con un hilo llamado desde el método actualizar Corazon
-     * @return
+     * @return un objeto BluetoothGattService
      */
     private BluetoothGattService dameServicioHeartRate(){
         ratio = new BluetoothGattCharacteristic(DatosGATT.HEART_RATE_CARAC_MEDIDA, BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ);
@@ -217,26 +215,100 @@ public class EmisorActivity extends AppCompatActivity {
         return servicio;
     }
 
+    /**
+     * Construye un servicio Batería
+     * @return un objeto BluetoothGattService
+     */
+    private BluetoothGattService dameServicioBateria(){
+        BluetoothGattCharacteristic nivel = new BluetoothGattCharacteristic(
+                DatosGATT.BATTERY_CARAC_LEVEL,
+                BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
+        nivel.setValue("65".getBytes());
+
+        BluetoothGattService servicio = new BluetoothGattService( DatosGATT.BATTERY_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+        servicio.addCharacteristic(nivel);
+        return servicio;
+    }
+
+    /**
+     * Construye un servicio status
+     * @return un servicio status
+     */
+    private BluetoothGattService dameServicioStatus(){
+        BluetoothGattCharacteristic leer = new BluetoothGattCharacteristic(
+                DatosGATT.STATUS_CARAC_LEER,
+                BluetoothGattCharacteristic.PROPERTY_READ,
+                BluetoothGattCharacteristic.PERMISSION_READ
+        );
+        BluetoothGattCharacteristic escribir = new BluetoothGattCharacteristic(
+            DatosGATT.STATUS_CARAC_ESCRIBIR, BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE
+        );
+        BluetoothGattCharacteristic temp = new BluetoothGattCharacteristic(
+                DatosGATT.STATUS_CARAC_TEMP, BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ
+        );
+        leer.setValue("default".getBytes());
+        escribir.setValue("default".getBytes());
+        temp.setValue("default".getBytes());
+
+        BluetoothGattService servicio = new BluetoothGattService(DatosGATT.STATUS_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+        servicio.addCharacteristic( leer );
+        servicio.addCharacteristic( escribir);
+        servicio.addCharacteristic( temp );
+        return servicio;
+    }
+
+    /**
+     * Construye servicio Health_Temperature
+     * @return el servicio
+     */
+    private BluetoothGattService dameServicioHealth(){
+        BluetoothGattCharacteristic medida = new BluetoothGattCharacteristic( DatosGATT.HEALTH_THERMOMETER_CARAC_MEDIDA, BluetoothGattCharacteristic.PROPERTY_INDICATE, BluetoothGattCharacteristic.PERMISSION_READ);
+        BluetoothGattCharacteristic tipo = new BluetoothGattCharacteristic( DatosGATT.HEALTH_THERMOMETER_CARAC_TIPO, BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
+        BluetoothGattCharacteristic intermedia = new BluetoothGattCharacteristic(DatosGATT.HEALTH_THERMOMETER_CARAC_INTERMEDIA, BluetoothGattCharacteristic.PROPERTY_NOTIFY, BluetoothGattCharacteristic.PERMISSION_READ);
+        BluetoothGattCharacteristic intervalo = new BluetoothGattCharacteristic(DatosGATT.HEALTH_THERMOMETER_CARAC_INTERVALO, BluetoothGattCharacteristic.PROPERTY_READ, BluetoothGattCharacteristic.PERMISSION_READ);
+
+        BluetoothGattDescriptor descriptor = new BluetoothGattDescriptor(DatosGATT.CCCD , BluetoothGattDescriptor.PERMISSION_READ|BluetoothGattDescriptor.PERMISSION_WRITE);
+        byte[] valor = new byte[]{ 0x00, 0x01 };
+        descriptor.setValue(valor);
+
+        medida.addDescriptor(descriptor);
+        intermedia.addDescriptor(descriptor);
+
+        medida.setValue("36".getBytes());
+        tipo.setValue("default".getBytes());
+        intermedia.setValue("default".getBytes());
+        intervalo.setValue("defualt".getBytes());
+
+        BluetoothGattService servicio = new BluetoothGattService(DatosGATT.HEALTH_THERMOMETER_SERVICIO, BluetoothGattService.SERVICE_TYPE_PRIMARY);
+        servicio.addCharacteristic(medida);
+        servicio.addCharacteristic(tipo);
+        servicio.addCharacteristic(intermedia);
+        servicio.addCharacteristic(intervalo);
+        return servicio;
+    }
+
     // En un hilo aparte realiza el cambio de valor de los latidos de corazón.
     private void actualizarCorazon(){
-        hilocorazon = new Thread(){
+        Thread hilocorazon = new Thread() {
             int valor = 0;
             Random random = new Random();
 
             @Override
-            public void run(){
-                while(ejecutarHilo){
+            public void run() {
+                while (ejecutarHilo) {
                     valor = 60 + random.nextInt(60);
-                    try{
+                    try {
                         sleep(1000);       //pausa
-                    }catch (InterruptedException e){
+                    } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                     List<BluetoothDevice> dispositivosconectados = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
-                    if( dispositivosconectados != null){
-                        ratio.setValue( String.valueOf(valor).getBytes());
-                        if( dispositivosconectados.size() != 0){
-                            for( BluetoothDevice device: dispositivosconectados){
+                    if (dispositivosconectados != null) {
+                        ratio.setValue(String.valueOf(valor).getBytes());
+                        if (dispositivosconectados.size() != 0) {
+                            for (BluetoothDevice device : dispositivosconectados) {
                                 mGattServer.notifyCharacteristicChanged(device, ratio, false);
                             }
                         }
@@ -279,6 +351,9 @@ public class EmisorActivity extends AppCompatActivity {
         servicios.add( dameServicioPodometro() );
         servicios.add( dameServicioAcelerometro() );
         servicios.add( dameServicioHeartRate() );
+        servicios.add( dameServicioBateria() );
+        servicios.add( dameServicioStatus() );
+        servicios.add( dameServicioHealth() );
 
         mGattServer.addService( servicios.get(indicadorServicio) ); //añado al primer servicio -> cuando se reciba el evento de servicio añadido se añadirán los siguientes.
         indicadorServicio = 1;
@@ -375,8 +450,6 @@ public class EmisorActivity extends AppCompatActivity {
             super.onExecuteWrite(device, requestId, execute);
         }
     };
-
-
 
 }
 
